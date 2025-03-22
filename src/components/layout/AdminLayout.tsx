@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/context/AuthContext';
 
 type AdminLayoutProps = {
   children: React.ReactNode;
@@ -32,6 +33,7 @@ type AdminLayoutProps = {
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { path: '/admin', label: 'Dashboard', icon: <Grid3X3 size={20} /> },
@@ -42,6 +44,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const toggleSidebar = () => {
     setSidebarCollapsed(prev => !prev);
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -112,10 +118,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="" />
                   <AvatarFallback className="bg-primary text-primary-foreground">
-                    A
+                    {user?.name?.charAt(0) || 'A'}
                   </AvatarFallback>
                 </Avatar>
-                {!sidebarCollapsed && <span>Admin</span>}
+                {!sidebarCollapsed && <span>{user?.name || 'Admin'}</span>}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -130,7 +136,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
