@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
@@ -31,8 +32,15 @@ const Albums = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Define a wrapper function to match the hook's expected signature
+  const handleReorderAlbum = (albumId: string, newOrder: number, categoryId?: string) => {
+    if (categoryId) {
+      reorderAlbums(albumId, categoryId, newOrder);
+    }
+  };
+  
   const { isDragging, dragItem, handleDragStart } = useDragAndDrop<string>({
-    onReorder: reorderAlbums,
+    onReorder: handleReorderAlbum,
     additionalInfo: selectedCategoryId || '',
     selector: '.album-item',
   });
@@ -142,6 +150,11 @@ const Albums = () => {
         slug: shouldUpdateSlug ? createSlug(name) : prev.slug,
       };
     });
+  };
+
+  // Navigate to the album's images
+  const handleAlbumClick = (id: string) => {
+    navigate(`/admin/images?album=${id}`);
   };
 
   return (

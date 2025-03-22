@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
@@ -34,8 +35,15 @@ const Images = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Define a wrapper function to match the hook's expected signature
+  const handleReorderImage = (imageId: string, newOrder: number, albumId?: string) => {
+    if (albumId) {
+      reorderImages(imageId, albumId, newOrder);
+    }
+  };
+  
   const { isDragging, dragItem, handleDragStart } = useDragAndDrop<string>({
-    onReorder: reorderImages,
+    onReorder: handleReorderImage,
     additionalInfo: selectedAlbumId || '',
     selector: '.image-item',
   });
