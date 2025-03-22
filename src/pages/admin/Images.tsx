@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Album, Image } from '@/types';
+import useDragAndDrop from '@/hooks/useDragAndDrop';
 
 interface ImageFormData {
   id?: string;
@@ -30,11 +30,15 @@ const Images = () => {
   const { albums, images, addImage, updateImage, deleteImage, reorderImages } = useAdmin();
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ImageFormData | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragItem = useRef<{ id: string, index: number } | null>(null);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  
+  const { isDragging, dragItem, handleDragStart } = useDragAndDrop<string>({
+    onReorder: reorderImages,
+    additionalInfo: selectedAlbumId || '',
+    selector: '.image-item',
+  });
   
   // Parse album ID from URL query parameters on component mount
   useEffect(() => {
@@ -107,58 +111,6 @@ const Images = () => {
     
     setFormOpen(false);
     setEditingItem(null);
-  };
-
-  // Drag and drop handlers
-  const handleDragStart = (e: React.PointerEvent, id: string, index: number) => {
-    dragItem.current = { id, index };
-    
-    // Add event listeners
-    document.addEventListener('pointermove', handleDragMove);
-    document.addEventListener('pointerup', handleDragEnd);
-    
-    // Wait a bit before showing dragging state to prevent flashes on click
-    setTimeout(() => {
-      setIsDragging(true);
-    }, 50);
-    
-    e.stopPropagation();
-  };
-
-  const handleDragMove = (e: PointerEvent) => {
-    if (!isDragging || !dragItem.current || !selectedAlbumId) return;
-    
-    // Get mouse position
-    const { clientX, clientY } = e;
-    
-    // Get all draggable items
-    const items = Array.from(document.querySelectorAll('.image-item'));
-    
-    // Find the item we're hovering over
-    items.forEach((item, index) => {
-      const rect = item.getBoundingClientRect();
-      
-      // Check if the mouse is inside this item
-      if (
-        clientX >= rect.left &&
-        clientX <= rect.right &&
-        clientY >= rect.top &&
-        clientY <= rect.bottom &&
-        index !== dragItem.current!.index
-      ) {
-        reorderImages(dragItem.current!.id, selectedAlbumId, index + 1);
-        dragItem.current!.index = index;
-      }
-    });
-  };
-
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    dragItem.current = null;
-    
-    // Remove event listeners
-    document.removeEventListener('pointermove', handleDragMove);
-    document.removeEventListener('pointerup', handleDragEnd);
   };
 
   // Handle navigation back to albums

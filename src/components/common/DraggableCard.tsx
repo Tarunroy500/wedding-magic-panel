@@ -29,6 +29,13 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   onClick,
   className,
 }) => {
+  const handleDragStart = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    // Prevent default to avoid text selection during drag
+    e.preventDefault();
+    onDragStart(e, id, index);
+  };
+
   return (
     <motion.div
       layout
@@ -70,7 +77,8 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         </div>
         <div 
           className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing"
-          onPointerDown={(e) => onDragStart(e, id, index)}
+          onPointerDown={handleDragStart}
+          touch-action="none"
         >
           <div className="h-8 w-8 rounded-full bg-white/80 backdrop-blur-sm shadow-sm flex items-center justify-center">
             <GripVertical size={14} className="text-gray-500" />

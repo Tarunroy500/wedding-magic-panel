@@ -1,5 +1,4 @@
-
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, FolderOpen } from 'lucide-react';
 import { Category } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import useDragAndDrop from '@/hooks/useDragAndDrop';
 
 interface CategoryFormData {
   id?: string;
@@ -25,10 +25,13 @@ const Categories = () => {
   const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useAdmin();
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CategoryFormData | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragItem = useRef<{ id: string, index: number } | null>(null);
   const navigate = useNavigate();
   
+  const { isDragging, dragItem, handleDragStart } = useDragAndDrop({
+    onReorder: reorderCategories,
+    selector: '.category-item',
+  });
+
   // Open form for adding new category
   const handleAddNew = () => {
     setEditingItem({ name: '', slug: '', description: '', thumbnailUrl: '' });
@@ -100,58 +103,6 @@ const Categories = () => {
         slug: shouldUpdateSlug ? createSlug(name) : prev.slug,
       };
     });
-  };
-
-  // Drag and drop handlers
-  const handleDragStart = (e: React.PointerEvent, id: string, index: number) => {
-    dragItem.current = { id, index };
-    
-    // Add event listeners
-    document.addEventListener('pointermove', handleDragMove);
-    document.addEventListener('pointerup', handleDragEnd);
-    
-    // Wait a bit before showing dragging state to prevent flashes on click
-    setTimeout(() => {
-      setIsDragging(true);
-    }, 50);
-    
-    e.stopPropagation();
-  };
-
-  const handleDragMove = (e: PointerEvent) => {
-    if (!isDragging || !dragItem.current) return;
-    
-    // Get mouse position
-    const { clientX, clientY } = e;
-    
-    // Get all draggable items
-    const items = Array.from(document.querySelectorAll('.category-item'));
-    
-    // Find the item we're hovering over
-    items.forEach((item, index) => {
-      const rect = item.getBoundingClientRect();
-      
-      // Check if the mouse is inside this item
-      if (
-        clientX >= rect.left &&
-        clientX <= rect.right &&
-        clientY >= rect.top &&
-        clientY <= rect.bottom &&
-        index !== dragItem.current!.index
-      ) {
-        reorderCategories(dragItem.current!.id, index + 1);
-        dragItem.current!.index = index;
-      }
-    });
-  };
-
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    dragItem.current = null;
-    
-    // Remove event listeners
-    document.removeEventListener('pointermove', handleDragMove);
-    document.removeEventListener('pointerup', handleDragEnd);
   };
 
   // Handle clicking on a category to view its albums
