@@ -1,13 +1,13 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import authService from '@/services/api';
+import { jwtDecode } from 'jwt-decode';
 
 interface User {
   id: string;
   email: string;
-  name: string;
-  role: 'admin' | 'user';
+  name?: string;
 }
 
 interface AuthContextType {
@@ -17,18 +17,23 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  forgotPassword: (email: string) => Promise<boolean>;
 }
 
-// Mock user data - in a real app, this would come from your backend
-const MOCK_USERS = [
-  {
-    id: '1',
-    email: 'admin@example.com',
-    password: 'password123',
-    name: 'Admin User',
-    role: 'admin' as const,
-  },
-];
+// JWT token decoder helper
+const decodeToken = (token: string): User | null => {
+  try {
+    const decoded: any = jwtDecode(token);
+    return {
+      id: decoded.id,
+      email: decoded.email || '', // Backend might not include email in token
+      name: decoded.name || '',
+    };
+  } catch (error) {
+    console.error('Failed to decode token:', error);
+    return null;
+  }
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -38,14 +43,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in (from localStorage)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('user');
+    // Check if user is authenticated based on stored token
+    const token = localStorage.getItem('token');
+    if (token) {
+      const decodedUser = decodeToken(token);
+      if (decodedUser) {
+        setUser(decodedUser);
+      } else {
+        // Token is invalid or expired
+        localStorage.removeItem('token');
       }
     }
     setIsLoading(false);
@@ -55,36 +61,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await authService.post('auth/login', { email, password });
+      const { token } = response.data;
       
-      // Check credentials against mock data
-      const foundUser = MOCK_USERS.find(
-        u => u.email === email && u.password === password
-      );
+      // Store token in localStorage
+      localStorage.setItem('token', token);
       
-      if (!foundUser) {
-        throw new Error('Invalid email or password');
+      // Decode user info from token
+      const decodedUser = decodeToken(token);
+      if (!decodedUser) {
+        throw new Error('Invalid token received');
       }
       
-      // Remove password from stored user data
-      const { password: _, ...userWithoutPassword } = foundUser;
-      
-      // Store user in state and localStorage
-      setUser(userWithoutPassword);
-      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
+      setUser(decodedUser);
       
       toast({
         title: 'Login successful!',
-        description: `Welcome back, ${userWithoutPassword.name}!`,
+        description: `Welcome back${decodedUser.name ? ', ' + decodedUser.name : ''}!`,
       });
       
       // Redirect to dashboard
       navigate('/admin');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Login failed',
-        description: error instanceof Error ? error.message : 'An unknown error occurred',
+        description: error.response?.data?.message || 'Invalid credentials',
         variant: 'destructive',
       });
     } finally {
@@ -96,27 +97,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await authService.post('auth/register', { name, email, password });
+      const { token } = response.data;
       
-      // Check if user already exists
-      const existingUser = MOCK_USERS.find(u => u.email === email);
-      if (existingUser) {
-        throw new Error('User with this email already exists');
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      
+      // Decode user info from token
+      const decodedUser = decodeToken(token);
+      if (!decodedUser) {
+        throw new Error('Invalid token received');
       }
       
-      // In a real app, you would create the user in your backend here
-      // For this mock version, we'll just pretend it worked
-      const newUser = {
-        id: Date.now().toString(),
-        email,
-        name,
-        role: 'admin' as const,
-      };
-      
-      // Store user in state and localStorage
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      // Add name since it might not be in the token
+      const userWithName = { ...decodedUser, name };
+      setUser(userWithName);
       
       toast({
         title: 'Registration successful!',
@@ -125,10 +120,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Redirect to dashboard
       navigate('/admin');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Registration failed',
-        description: error instanceof Error ? error.message : 'An unknown error occurred',
+        description: error.response?.data?.message || 'An error occurred during registration',
         variant: 'destructive',
       });
     } finally {
@@ -136,9 +131,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const forgotPassword = async (email: string): Promise<boolean> => {
+    try {
+      await authService.post('auth/forgot-password', { email });
+      return true;
+    } catch (error) {
+      console.error('Error in forgot password:', error);
+      return false;
+    }
+  };
+
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     toast({
       title: 'Logged out successfully',
     });
@@ -154,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        forgotPassword,
       }}
     >
       {children}

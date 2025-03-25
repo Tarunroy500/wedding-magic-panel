@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
@@ -16,6 +15,7 @@ import {
   FormMessage
 } from '@/components/ui/form';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -26,6 +26,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 const ForgotPassword = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const { forgotPassword } = useAuth();
   
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -38,18 +39,18 @@ const ForgotPassword = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const success = await forgotPassword(values.email);
       
-      // In a real app, you would call your API to send a password reset email
-      console.log('Password reset requested for:', values.email);
-      
-      toast({
-        title: 'Password reset email sent',
-        description: 'Check your inbox for instructions to reset your password',
-      });
-      
-      setIsSubmitted(true);
+      if (success) {
+        toast({
+          title: 'Password reset email sent',
+          description: 'Check your inbox for instructions to reset your password',
+        });
+        
+        setIsSubmitted(true);
+      } else {
+        throw new Error('Failed to send reset email');
+      }
     } catch (error) {
       toast({
         title: 'Failed to send reset email',

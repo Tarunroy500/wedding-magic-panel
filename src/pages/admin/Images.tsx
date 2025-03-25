@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
@@ -14,11 +13,16 @@ import {
   ArrowLeft, 
   Trash2, 
   GripVertical, 
-  Info 
+  Info,
+  Loader2,
+  Upload
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Album, Image } from '@/types';
 import useDragAndDrop from '@/hooks/useDragAndDrop';
+import { fetchAlbumImages, uploadImage, updateImage as updateImageApi, deleteImage as deleteImageApi, bulkUploadImages } from '@/api/imageApi';
+import { useToast } from '@/components/ui/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 interface ImageFormData {
   id?: string;
@@ -28,12 +32,21 @@ interface ImageFormData {
 }
 
 const Images = () => {
-  const { albums, images, addImage, updateImage, deleteImage, reorderImages } = useAdmin();
+  const { albums, images: contextImages, addImage, updateImage, deleteImage, reorderImages } = useAdmin();
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ImageFormData | null>(null);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [albumImages, setAlbumImages] = useState<Image[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingBulk, setUploadingBulk] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [bulkUploadAlt, setBulkUploadAlt] = useState('');
   
   // Define a wrapper function to match the hook's expected signature
   const handleReorderImage = (imageId: string, newOrder: number, albumId?: string) => {
@@ -57,6 +70,33 @@ const Images = () => {
     }
   }, [location.search]);
 
+  // Fetch images for the selected album from API
+  useEffect(() => {
+    if (selectedAlbumId) {
+      setIsLoading(true);
+      setError(null);
+      
+      fetchAlbumImages(selectedAlbumId)
+        .then((images) => {
+          setAlbumImages(images.sort((a, b) => a.order - b.order));
+        })
+        .catch((err) => {
+          console.error('Error fetching album images:', err);
+          setError('Failed to load images. Please try again.');
+          toast({
+            title: 'Error',
+            description: 'Could not load album images',
+            variant: 'destructive',
+          });
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      setAlbumImages([]);
+    }
+  }, [selectedAlbumId, toast]);
+
   // Get the selected album
   const selectedAlbum = albums.find(album => album.id === selectedAlbumId);
   
@@ -64,11 +104,6 @@ const Images = () => {
   const parentCategory = selectedAlbum 
     ? albums.find(album => album.id === selectedAlbumId)?.categoryId 
     : null;
-  
-  // Get images for the selected album
-  const albumImages = images
-    .filter(image => image.albumId === selectedAlbumId)
-    .sort((a, b) => a.order - b.order);
   
   // Open form for adding new image
   const handleAddNew = () => {
@@ -84,7 +119,7 @@ const Images = () => {
 
   // Open form for editing existing image
   const handleEdit = (id: string) => {
-    const image = images.find(img => img.id === id);
+    const image = albumImages.find(img => img.id === id);
     if (!image) return;
     
     setEditingItem({
@@ -96,29 +131,104 @@ const Images = () => {
     setFormOpen(true);
   };
 
-  // Handle form submission for add/edit
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle form submission for add/edit with API integration
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!editingItem) return;
     
-    if (editingItem.id) {
-      // Update existing
-      updateImage(editingItem.id, {
-        url: editingItem.url,
-        alt: editingItem.alt,
-      });
-    } else {
-      // Add new
-      addImage({
-        url: editingItem.url,
-        alt: editingItem.alt,
-        albumId: editingItem.albumId,
+    try {
+      if (editingItem.id) {
+        // Update existing image
+        const updatedImage = await updateImageApi(editingItem.id, {
+          url: editingItem.url,
+          alt: editingItem.alt,
+        });
+        
+        // Update local state
+        setAlbumImages(prev => 
+          prev.map(img => img.id === editingItem.id 
+            ? { ...img, url: updatedImage.url, alt: updatedImage.alt }
+            : img
+          )
+        );
+        
+        // Also update context
+        updateImage(editingItem.id, {
+          url: updatedImage.url,
+          alt: updatedImage.alt,
+        });
+        
+        toast({
+          title: 'Success',
+          description: 'Image updated successfully',
+        });
+      } else {
+        // Prepare form data for image upload
+        const formData = new FormData();
+        
+        // If the URL is a base64 string from ImageUploader, convert to file
+        if (editingItem.url.startsWith('data:')) {
+          const blob = await fetch(editingItem.url).then(r => r.blob());
+          const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+          formData.append('image', file);
+        } else {
+          formData.append('url', editingItem.url);
+        }
+        
+        formData.append('alt', editingItem.alt);
+        formData.append('albumId', editingItem.albumId);
+        
+        // Upload image to API
+        const newImage = await uploadImage(formData);
+        
+        // Update local state
+        setAlbumImages(prev => [...prev, newImage]);
+        
+        // Also update context
+        addImage(newImage);
+        
+        toast({
+          title: 'Success',
+          description: 'Image added successfully',
+        });
+      }
+      
+      setFormOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error submitting image:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save the image',
+        variant: 'destructive',
       });
     }
-    
-    setFormOpen(false);
-    setEditingItem(null);
+  };
+
+  // Handle deleting image with API integration
+  const handleDeleteImage = async (id: string) => {
+    try {
+      await deleteImageApi(id);
+      
+      // Update local state
+      setAlbumImages(prev => prev.filter(img => img.id !== id));
+      
+      // Also update context
+      deleteImage(id);
+      
+      toast({
+        title: 'Success',
+        description: 'Image deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the image',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Handle navigation back to albums
@@ -127,6 +237,87 @@ const Images = () => {
       navigate(`/admin/albums?category=${parentCategory}`);
     } else {
       navigate('/admin/albums');
+    }
+  };
+
+  // Handle selection of multiple files
+  const handleMultipleFiles = (files: File[]) => {
+    setSelectedFiles(files);
+    setBulkUploadOpen(true);
+  };
+  
+  // Handle bulk upload form submission
+  const handleBulkUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedAlbumId || selectedFiles.length === 0) return;
+    
+    try {
+      setUploadingBulk(true);
+      setUploadProgress(0);
+      
+      // Create form data for bulk upload
+      const formData = new FormData();
+      formData.append('albumId', selectedAlbumId);
+      formData.append('alt', bulkUploadAlt);
+      
+      // Append each file to the form data
+      selectedFiles.forEach(file => {
+        formData.append('images', file);
+      });
+      
+      // Simulate progress updates (in a real implementation, you might use axios progress)
+      const progressUpdater = setInterval(() => {
+        setUploadProgress(prev => {
+          const newProgress = prev + 5;
+          if (newProgress >= 95) {
+            clearInterval(progressUpdater);
+            return 95;
+          }
+          return newProgress;
+        });
+      }, 200);
+      
+      // Send the bulk upload request
+      const uploadedImages = await bulkUploadImages(formData);
+      
+      // Clear interval and set progress to 100%
+      clearInterval(progressUpdater);
+      setUploadProgress(100);
+      
+      // Add the new images to state
+      setAlbumImages(prev => [...prev, ...uploadedImages]);
+      
+      // Add images to context
+      uploadedImages.forEach(image => {
+        addImage(image);
+      });
+      
+      // Show success message
+      toast({
+        title: 'Success',
+        description: `Successfully uploaded ${uploadedImages.length} images`,
+      });
+      
+      // Reset state after a brief delay to show 100% progress
+      setTimeout(() => {
+        setBulkUploadOpen(false);
+        setSelectedFiles([]);
+        setBulkUploadAlt('');
+        setUploadingBulk(false);
+        setUploadProgress(0);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error with bulk upload:', error);
+      setUploadingBulk(false);
+      setUploadProgress(0);
+      
+      toast({
+        title: 'Error',
+        description: 'Failed to upload images',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -152,18 +343,58 @@ const Images = () => {
           )}
         </div>
         
-        <Button 
-          onClick={handleAddNew} 
-          className="flex items-center gap-2"
-          disabled={!selectedAlbumId}
-        >
-          <Plus size={16} />
-          Add Images
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleAddNew} 
+            className="flex items-center gap-2"
+            disabled={!selectedAlbumId || isLoading}
+          >
+            <Plus size={16} />
+            Add Image
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => setBulkUploadOpen(true)}
+            className="flex items-center gap-2"
+            disabled={!selectedAlbumId || isLoading}
+          >
+            <Upload size={16} />
+            Bulk Upload
+          </Button>
+        </div>
       </div>
       
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Loading images...</span>
+        </div>
+      )}
+      
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="rounded-lg border border-destructive p-8 text-center text-destructive">
+          <p className="font-medium">{error}</p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={() => {
+              if (selectedAlbumId) {
+                fetchAlbumImages(selectedAlbumId)
+                  .then(images => setAlbumImages(images))
+                  .catch(err => setError('Failed to reload images.'));
+              }
+            }}
+          >
+            Try Again
+          </Button>
+        </div>
+      )}
+      
       {/* Images Grid */}
-      {selectedAlbumId ? (
+      {!isLoading && !error && selectedAlbumId ? (
         albumImages.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <AnimatePresence>
@@ -209,7 +440,7 @@ const Images = () => {
                           className="rounded-full h-8 w-8 bg-white hover:bg-destructive hover:text-white text-gray-800"
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteImage(image.id);
+                            handleDeleteImage(image.id);
                           }}
                         >
                           <Trash2 size={14} />
@@ -300,6 +531,92 @@ const Images = () => {
               Describe the image for better accessibility and SEO.
             </p>
           </div>
+        </div>
+      </FormDialog>
+
+      {/* Bulk Upload Dialog */}
+      <FormDialog
+        title="Bulk Upload Images"
+        description="Upload multiple images to this album at once"
+        open={bulkUploadOpen}
+        onOpenChange={(open) => {
+          // Only allow closing if not currently uploading
+          if (!uploadingBulk) {
+            setBulkUploadOpen(open);
+            if (!open) {
+              setSelectedFiles([]);
+              setBulkUploadAlt('');
+            }
+          }
+        }}
+        onSubmit={handleBulkUpload}
+      >
+        <div className="space-y-4">
+          {selectedFiles.length === 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="images">Select Images</Label>
+              <ImageUploader
+                value=""
+                onChange={() => {}} // Not used in multiple mode
+                label="Select multiple images to upload"
+                multiple={true}
+                onMultipleFiles={handleMultipleFiles}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>Selected Images</Label>
+                <div className="border rounded-md p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">{selectedFiles.length} images selected</span>
+                    {!uploadingBulk && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSelectedFiles([])}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="aspect-square relative rounded overflow-hidden border">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={`Selected ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="alt">Alt Text (applies to all images)</Label>
+                <Input
+                  id="alt"
+                  value={bulkUploadAlt}
+                  onChange={(e) => setBulkUploadAlt(e.target.value)}
+                  placeholder="Optional description for all images"
+                  disabled={uploadingBulk}
+                />
+              </div>
+              
+              {uploadingBulk && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Uploading...</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+            </>
+          )}
         </div>
       </FormDialog>
     </div>

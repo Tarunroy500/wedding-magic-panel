@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { ImagePlus, X, Loader2 } from 'lucide-react';
+import { ImagePlus, X, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ImageUploaderProps {
@@ -10,6 +9,8 @@ interface ImageUploaderProps {
   className?: string;
   aspectRatio?: 'square' | 'video' | 'wide';
   label?: string;
+  multiple?: boolean;
+  onMultipleFiles?: (files: File[]) => void;
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({
@@ -18,6 +19,8 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   className,
   aspectRatio = 'square',
   label = 'Upload Image',
+  multiple = false,
+  onMultipleFiles,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   
@@ -28,14 +31,25 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     wide: 'aspect-[16/9]',
   };
   
-  // Mock image upload - in a real app, you would upload to your server or a service like S3
+  // Handle file change for both single and multiple uploads
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
     setIsLoading(true);
     
-    // Simulate file upload delay
+    // Handle multiple file selection
+    if (multiple && files.length > 1 && onMultipleFiles) {
+      const fileArray = Array.from(files);
+      onMultipleFiles(fileArray);
+      setIsLoading(false);
+      return;
+    }
+    
+    // Handle single file (original behavior)
+    const file = files[0];
+    
+    // Simulate file upload delay (for demo)
     setTimeout(() => {
       // Create a local object URL (would be a server URL in production)
       const localUrl = URL.createObjectURL(file);
@@ -84,15 +98,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
               </div>
             ) : (
               <div className="flex flex-col items-center space-y-4 p-8">
-                <ImagePlus className="h-10 w-10 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{label}</p>
+                {multiple ? (
+                  <Upload className="h-10 w-10 text-muted-foreground" />
+                ) : (
+                  <ImagePlus className="h-10 w-10 text-muted-foreground" />
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {multiple ? `${label} (select multiple)` : label}
+                </p>
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   disabled={isLoading}
                 >
-                  Select Image
+                  {multiple ? 'Select Images' : 'Select Image'}
                 </Button>
               </div>
             )}
@@ -106,6 +126,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         onChange={handleFileChange}
         disabled={isLoading}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        multiple={multiple}
       />
     </div>
   );

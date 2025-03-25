@@ -8,7 +8,7 @@ import ImageUploader from '@/components/common/ImageUploader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, FolderOpen } from 'lucide-react';
+import { Plus, FolderOpen, Loader2 } from 'lucide-react';
 import { Category } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import useDragAndDrop from '@/hooks/useDragAndDrop';
@@ -23,6 +23,7 @@ interface CategoryFormData {
 
 const Categories = () => {
   const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useAdmin();
+  const loading = { categories: false };
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CategoryFormData | null>(null);
   const navigate = useNavigate();
@@ -120,44 +121,63 @@ const Categories = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Category Management</h1>
-        <Button onClick={handleAddNew} className="flex items-center gap-2">
-          <Plus size={16} />
+        <Button 
+          onClick={handleAddNew} 
+          className="flex items-center gap-2"
+          disabled={loading.categories}
+        >
+          {loading.categories ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Plus size={16} />
+          )}
           Add Category
         </Button>
       </div>
       
-      {/* Categories Grid */}
-      {sortedCategories.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <AnimatePresence>
-            {sortedCategories.map((category, index) => (
-              <motion.div
-                key={category.id}
-                layout
-                className="category-item"
-                style={{ zIndex: isDragging && dragItem.current?.id === category.id ? 10 : 1 }}
-              >
-                <DraggableCard
-                  id={category.id}
-                  title={category.name}
-                  thumbnailUrl={category.thumbnailUrl}
-                  index={index}
-                  onDragStart={handleDragStart}
-                  onEdit={handleEdit}
-                  onDelete={deleteCategory}
-                  onClick={handleCategoryClick}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+      {/* Loading State */}
+      {loading.categories && categories.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 size={40} className="animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading categories...</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
-          <h3 className="mt-4 text-lg font-medium">No Categories Yet</h3>
-          <p className="mt-2 text-sm text-muted-foreground">Get started by creating a new category.</p>
-          <Button onClick={handleAddNew} className="mt-4">Add Your First Category</Button>
-        </div>
+        /* Categories Grid */
+        categories.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {sortedCategories.map((category, index) => (
+                <motion.div
+                  key={category.id}
+                  layout
+                  className="category-item"
+                  style={{ zIndex: isDragging && dragItem.current?.id === category.id ? 10 : 1 }}
+                >
+                  <DraggableCard
+                    id={category.id}
+                    title={category.name}
+                    thumbnailUrl={category.thumbnailUrl}
+                    index={index}
+                    onDragStart={handleDragStart}
+                    onEdit={handleEdit}
+                    onDelete={deleteCategory}
+                    onClick={handleCategoryClick}
+                    isLoading={loading.categories}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed p-12 text-center">
+            <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
+            <h3 className="mt-4 text-lg font-medium">No Categories Yet</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Get started by creating a new category.</p>
+            <Button onClick={handleAddNew} className="mt-4" disabled={loading.categories}>
+              Add Your First Category
+            </Button>
+          </div>
+        )
       )}
       
       {/* Form Dialog */}
@@ -167,6 +187,7 @@ const Categories = () => {
         open={formOpen}
         onOpenChange={setFormOpen}
         onSubmit={handleSubmit}
+        loading={loading.categories}
       >
         <div className="space-y-4">
           <div className="space-y-2">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
@@ -10,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Layers, ArrowLeft } from 'lucide-react';
+import { Plus, Layers, ArrowLeft, Loader2 } from 'lucide-react';
 import { Category, Album } from '@/types';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useDragAndDrop from '@/hooks/useDragAndDrop';
@@ -25,7 +24,7 @@ interface AlbumFormData {
 }
 
 const Albums = () => {
-  const { categories, albums, addAlbum, updateAlbum, deleteAlbum, reorderAlbums } = useAdmin();
+  const { categories, albums, addAlbum, updateAlbum, deleteAlbum, reorderAlbums, loading } = useAdmin();
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AlbumFormData | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -72,12 +71,14 @@ const Albums = () => {
   
   // Open form for adding new album
   const handleAddNew = () => {
+    if (!selectedCategoryId) return;
+    
     setEditingItem({ 
       name: '', 
       slug: '', 
       description: '', 
       thumbnailUrl: '', 
-      categoryId: selectedCategoryId || categories[0]?.id || '' 
+      categoryId: selectedCategoryId
     });
     setFormOpen(true);
   };
@@ -183,6 +184,7 @@ const Albums = () => {
           <Select
             value={selectedCategoryId || ''}
             onValueChange={handleCategoryChange}
+            disabled={loading.categories}
           >
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Select a category" />
@@ -199,55 +201,70 @@ const Albums = () => {
           <Button 
             onClick={handleAddNew} 
             className="flex items-center gap-2"
-            disabled={!selectedCategoryId}
+            disabled={!selectedCategoryId || loading.albums}
           >
-            <Plus size={16} />
+            {loading.albums ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Plus size={16} />
+            )}
             Add Album
           </Button>
         </div>
       </div>
       
-      {/* Albums Grid */}
-      {selectedCategoryId ? (
-        categoryAlbums.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence>
-              {categoryAlbums.map((album, index) => (
-                <motion.div
-                  key={album.id}
-                  layout
-                  className="album-item"
-                  style={{ zIndex: isDragging && dragItem.current?.id === album.id ? 10 : 1 }}
-                >
-                  <DraggableCard
-                    id={album.id}
-                    title={album.name}
-                    thumbnailUrl={album.thumbnailUrl}
-                    index={index}
-                    onDragStart={handleDragStart}
-                    onEdit={handleEdit}
-                    onDelete={deleteAlbum}
-                    onClick={handleAlbumClick}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+      {/* Loading State */}
+      {loading.albums && categoryAlbums.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 size={40} className="animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading albums...</p>
+        </div>
+      ) : (
+        /* Albums Grid */
+        selectedCategoryId ? (
+          categoryAlbums.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatePresence>
+                {categoryAlbums.map((album, index) => (
+                  <motion.div
+                    key={album.id}
+                    layout
+                    className="album-item"
+                    style={{ zIndex: isDragging && dragItem.current?.id === album.id ? 10 : 1 }}
+                  >
+                    <DraggableCard
+                      id={album.id}
+                      title={album.name}
+                      thumbnailUrl={album.thumbnailUrl}
+                      index={index}
+                      onDragStart={handleDragStart}
+                      onEdit={handleEdit}
+                      onDelete={deleteAlbum}
+                      onClick={handleAlbumClick}
+                      isLoading={loading.albums}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-12 text-center">
+              <Layers className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
+              <h3 className="mt-4 text-lg font-medium">No Albums in This Category</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Get started by creating a new album.</p>
+              <Button onClick={handleAddNew} className="mt-4" disabled={loading.albums}>
+                Add Your First Album
+              </Button>
+            </div>
+          )
         ) : (
           <div className="rounded-lg border border-dashed p-12 text-center">
-            <Layers className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
-            <h3 className="mt-4 text-lg font-medium">No Albums in This Category</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Get started by creating a new album.</p>
-            <Button onClick={handleAddNew} className="mt-4">Add Your First Album</Button>
+            <h3 className="text-lg font-medium">Please Select a Category</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Select a category from the dropdown to view or manage its albums.
+            </p>
           </div>
         )
-      ) : (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <h3 className="text-lg font-medium">Please Select a Category</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Select a category from the dropdown to view or manage its albums.
-          </p>
-        </div>
       )}
       
       {/* Form Dialog */}
@@ -257,6 +274,7 @@ const Albums = () => {
         open={formOpen}
         onOpenChange={setFormOpen}
         onSubmit={handleSubmit}
+        loading={loading.albums}
       >
         <div className="space-y-4">
           <div className="space-y-2">
