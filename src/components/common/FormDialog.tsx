@@ -1,15 +1,14 @@
-
 import React from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface FormDialogProps {
   title: string;
@@ -18,58 +17,47 @@ interface FormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (e: React.FormEvent) => void;
   children: React.ReactNode;
-  isSubmitting?: boolean;
-  submitText?: string;
-  cancelText?: string;
+  loading?: boolean;
 }
 
-const FormDialog: React.FC<FormDialogProps> = ({
+const FormDialog = ({
   title,
   description,
   open,
   onOpenChange,
   onSubmit,
   children,
-  isSubmitting = false,
-  submitText = 'Save',
-  cancelText = 'Cancel',
-}) => {
+  loading = false,
+}: FormDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
-        <div className="p-6 pb-0">
-          <DialogHeader className="flex flex-row items-start justify-between">
-            <div>
-              <DialogTitle className="text-xl">{title}</DialogTitle>
-              {description && <DialogDescription>{description}</DialogDescription>}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={() => onOpenChange(false)}
-            >
-              <X size={18} />
-            </Button>
-          </DialogHeader>
-        </div>
-        
+      <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={onSubmit}>
-          <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
-            {children}
-          </div>
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            {description && <DialogDescription>{description}</DialogDescription>}
+          </DialogHeader>
           
-          <DialogFooter className="p-6 pt-2 border-t">
-            <Button
-              type="button"
-              variant="outline"
+          <div className="py-4">{children}</div>
+          
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
               onClick={() => onOpenChange(false)}
-              className="mr-2"
+              disabled={loading}
             >
-              {cancelText}
+              Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : submitText}
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </DialogFooter>
         </form>
