@@ -330,14 +330,14 @@ const Albums = () => {
               rows={3}
             />
           </div>
-          
+{/*           
           <div className="space-y-2">
             <Label htmlFor="thumbnail">Thumbnail Image</Label>
             <ImageUploader
               value={editingItem?.thumbnailUrl}
               onChange={(url) => setEditingItem(prev => prev ? { ...prev, thumbnailUrl: url } : null)}
             />
-          </div>
+          </div> */}
         </div>
       </FormDialog>
     </div>

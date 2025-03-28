@@ -214,7 +214,7 @@ const Categories = () => {
             </p>
           </div>
           
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -224,14 +224,14 @@ const Categories = () => {
               rows={3}
             />
           </div>
-          
-          <div className="space-y-2">
+           */}
+          {/* <div className="space-y-2">
             <Label htmlFor="thumbnail">Thumbnail Image</Label>
             <ImageUploader
               value={editingItem?.thumbnailUrl}
               onChange={(url) => setEditingItem(prev => prev ? { ...prev, thumbnailUrl: url } : null)}
             />
-          </div>
+          </div> */}
         </div>
       </FormDialog>
     </div>

@@ -37,7 +37,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const navItems = [
     { path: '/admin', label: 'Dashboard', icon: <Grid3X3 size={20} /> },
-    { path: '/admin/hero', label: 'Hero Sections', icon: <ImagePlus size={20} /> },
+    // { path: '/admin/hero', label: 'Hero Sections', icon: <ImagePlus size={20} /> },
     { path: '/admin/categories', label: 'Categories', icon: <FolderPlus size={20} /> },
     { path: '/admin/albums', label: 'Albums', icon: <Layers size={20} /> },
   ];
