@@ -49,7 +49,7 @@ const Albums = () => {
     const params = new URLSearchParams(location.search);
     const categoryId = params.get('category');
     if (categoryId) {
-      setSelectedCategoryId(categoryId);
+      setSelectedCategoryId(categoryId === 'all' ? 'all' : categoryId);
     } else if (categories.length > 0) {
       setSelectedCategoryId(categories[0].id);
     }
@@ -62,24 +62,37 @@ const Albums = () => {
   };
 
   // Get the selected category
-  const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+  const selectedCategory = selectedCategoryId !== 'all' 
+    ? categories.find(cat => cat.id === selectedCategoryId)
+    : null;
   
-  // Get albums for the selected category
-  const categoryAlbums = albums
-    .filter(album => album.categoryId === selectedCategoryId)
-    .sort((a, b) => a.order - b.order);
+  // Get albums for the selected category or all albums
+  const categoryAlbums = selectedCategoryId === 'all'
+    ? [...albums].sort((a, b) => a.name.localeCompare(b.name))
+    : albums
+      .filter(album => album.categoryId === selectedCategoryId)
+      .sort((a, b) => a.order - b.order);
   
   // Open form for adding new album
   const handleAddNew = () => {
-    if (!selectedCategoryId) return;
-    
-    setEditingItem({ 
-      name: '', 
-      slug: '', 
-      description: '', 
-      thumbnailUrl: '', 
-      categoryId: selectedCategoryId
-    });
+    if (!selectedCategoryId || selectedCategoryId === 'all') {
+      // If "All Albums" is selected, open form with no pre-selected category
+      setEditingItem({ 
+        name: '', 
+        slug: '', 
+        description: '', 
+        thumbnailUrl: '', 
+        categoryId: categories.length > 0 ? categories[0].id : ''
+      });
+    } else {
+      setEditingItem({ 
+        name: '', 
+        slug: '', 
+        description: '', 
+        thumbnailUrl: '', 
+        categoryId: selectedCategoryId
+      });
+    }
     setFormOpen(true);
   };
 
@@ -115,6 +128,8 @@ const Albums = () => {
         categoryId: editingItem.categoryId,
       });
     } else {
+      console.log(editingItem);
+      
       // Add new
       addAlbum({
         name: editingItem.name,
@@ -178,6 +193,11 @@ const Albums = () => {
               Category: <span className="font-medium text-foreground">{selectedCategory.name}</span>
             </p>
           )}
+          {selectedCategoryId === 'all' && (
+            <p className="text-muted-foreground mt-1">
+              Showing: <span className="font-medium text-foreground">All Albums</span>
+            </p>
+          )}
         </div>
         
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -190,6 +210,7 @@ const Albums = () => {
               <SelectValue placeholder="Select a category" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">All Albums</SelectItem>
               {categories.map(category => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}
@@ -201,7 +222,7 @@ const Albums = () => {
           <Button 
             onClick={handleAddNew} 
             className="flex items-center gap-2"
-            disabled={!selectedCategoryId || loading.albums}
+            disabled={loading.albums}
           >
             {loading.albums ? (
               <Loader2 size={16} className="animate-spin" />
@@ -221,31 +242,42 @@ const Albums = () => {
         </div>
       ) : (
         /* Albums Grid */
-        selectedCategoryId ? (
-          categoryAlbums.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AnimatePresence>
-                {categoryAlbums.map((album, index) => (
-                  <motion.div
-                    key={album.id}
-                    layout
-                    className="album-item"
-                    style={{ zIndex: isDragging && dragItem.current?.id === album.id ? 10 : 1 }}
-                  >
-                    <DraggableCard
-                      id={album.id}
-                      title={album.name}
-                      thumbnailUrl={album.thumbnailUrl}
-                      index={index}
-                      onDragStart={handleDragStart}
-                      onEdit={handleEdit}
-                      onDelete={deleteAlbum}
-                      onClick={handleAlbumClick}
-                      isLoading={loading.albums}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+        categoryAlbums.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {categoryAlbums.map((album, index) => (
+                <motion.div
+                  key={album.id}
+                  layout
+                  className="album-item"
+                  style={{ zIndex: isDragging && dragItem.current?.id === album.id ? 10 : 1 }}
+                >
+                  <DraggableCard
+                    id={album.id}
+                    title={album.name}
+                    thumbnailUrl={album.thumbnailUrl}
+                    subtitle={selectedCategoryId === 'all' ? 
+                      categories.find(c => c.id === album.categoryId)?.name : undefined}
+                    index={index}
+                    onDragStart={selectedCategoryId !== 'all' ? handleDragStart : undefined}
+                    onEdit={handleEdit}
+                    onDelete={deleteAlbum}
+                    onClick={handleAlbumClick}
+                    isLoading={loading.albums}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        ) : (
+          selectedCategoryId === 'all' ? (
+            <div className="rounded-lg border border-dashed p-12 text-center">
+              <Layers className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
+              <h3 className="mt-4 text-lg font-medium">No Albums Found</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Get started by creating a new album.</p>
+              <Button onClick={handleAddNew} className="mt-4" disabled={loading.albums}>
+                Add Your First Album
+              </Button>
             </div>
           ) : (
             <div className="rounded-lg border border-dashed p-12 text-center">
@@ -257,13 +289,6 @@ const Albums = () => {
               </Button>
             </div>
           )
-        ) : (
-          <div className="rounded-lg border border-dashed p-12 text-center">
-            <h3 className="text-lg font-medium">Please Select a Category</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Select a category from the dropdown to view or manage its albums.
-            </p>
-          </div>
         )
       )}
       

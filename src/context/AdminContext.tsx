@@ -408,6 +408,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         name: album.name,
         categoryId: album.categoryId,
         coverImage: album.thumbnailUrl,
+        description: album.description, // Include description field
         order: nextOrder,
       });
       
@@ -480,6 +481,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         name: updates.name,
         categoryId: updates.categoryId,
         coverImage: updates.thumbnailUrl,
+        description: updates.description, // Include description field
         order: updates.order,
       };
       

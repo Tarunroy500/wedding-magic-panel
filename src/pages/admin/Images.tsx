@@ -547,7 +547,7 @@ const Images = () => {
             />
           </div>
           
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label htmlFor="alt">Alt Text</Label>
             <Input
               id="alt"
@@ -558,7 +558,7 @@ const Images = () => {
             <p className="text-xs text-muted-foreground">
               Describe the image for better accessibility and SEO.
             </p>
-          </div>
+          </div> */}
         </div>
       </FormDialog>
 

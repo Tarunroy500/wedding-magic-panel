@@ -59,7 +59,7 @@ export const albumAPI = {
     return api.get(url);
   },
   getById: (id: string) => api.get(`/albums/${id}`),
-  create: (data: { name: string, categoryId: string, coverImage?: string, order?: number }) => 
+  create: (data: { name: string, categoryId: string, coverImage?: string, order?: number,description?:string }) => 
     api.post('/albums', data),
   update: (id: string, data: { name?: string, categoryId?: string, coverImage?: string, order?: number }) => 
     api.put(`/albums/${id}`, data),

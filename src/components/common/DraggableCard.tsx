@@ -17,6 +17,7 @@ interface DraggableCardProps {
   id: string;
   title: string;
   thumbnailUrl?: string;
+  subtitle?: string;
   index: number;
   onDragStart: (e: React.PointerEvent, id: string, index: number) => void;
   onEdit: (id: string) => void;
@@ -29,6 +30,7 @@ const DraggableCard = ({
   id,
   title,
   thumbnailUrl,
+  subtitle,
   index,
   onDragStart,
   onEdit,
@@ -88,7 +90,10 @@ const DraggableCard = ({
             >
               <GripVertical size={20} className="shrink-0" />
             </div>
-            <h3 className="font-medium truncate">{title}</h3>
+            <div className="flex flex-col">
+              <h3 className="font-medium truncate">{title}</h3>
+              {subtitle && <p className="text-sm text-muted-foreground truncate">{subtitle}</p>}
+            </div>
           </div>
           
           <div className="flex items-center gap-1">
