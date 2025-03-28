@@ -167,17 +167,45 @@ const Images = () => {
         // Prepare form data for image upload
         const formData = new FormData();
         
-        // If the URL is a base64 string from ImageUploader, convert to file
-        if (editingItem.url.startsWith('data:')) {
-          const blob = await fetch(editingItem.url).then(r => r.blob());
-          const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
-          formData.append('image', file);
-        } else {
+        // If the URL is a base64 string or blob URL from ImageUploader
+        if (editingItem.url.startsWith('data:') || editingItem.url.startsWith('blob:')) {
+          // Convert to file
+          try {
+            const response = await fetch(editingItem.url);
+            const blob = await response.blob();
+            const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+            formData.append('image', file);
+            console.log('Appended file to FormData:', file);
+          } catch (err) {
+            console.error('Error converting blob/base64 to file:', err);
+            toast({
+              title: 'Error',
+              description: 'Failed to process the image',
+              variant: 'destructive',
+            });
+            return;
+          }
+        } else if (editingItem.url) {
+          // If it's a regular URL string
           formData.append('url', editingItem.url);
+          console.log('Appended URL to FormData:', editingItem.url);
+        } else {
+          toast({
+            title: 'Error',
+            description: 'Please select or provide an image',
+            variant: 'destructive',
+          });
+          return;
         }
         
-        formData.append('alt', editingItem.alt);
+        // Always append these fields
+        formData.append('alt', editingItem.alt || '');
         formData.append('albumId', editingItem.albumId);
+        
+        // Log the FormData contents for debugging
+        for (const pair of formData.entries()) {
+          console.log(`${pair[0]}: ${pair[1]}`);
+        }
         
         // Upload image to API
         const newImage = await uploadImage(formData);
