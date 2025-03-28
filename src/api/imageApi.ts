@@ -24,6 +24,20 @@ export const fetchAlbumImages = async (albumId: string): Promise<Image[]> => {
 export const uploadImage = async (formData: FormData): Promise<Image> => {
   try {
     const token = localStorage.getItem('token');
+    
+    // Check if formData contains a file or a URL string
+    const hasFile = formData.has('image') && formData.get('image') instanceof File;
+    const hasUrl = formData.has('url') && typeof formData.get('url') === 'string';
+    
+    // If neither is present, throw an error
+    if (!hasFile && !hasUrl) {
+      throw new Error('No image file or URL provided');
+    }
+    
+    // Log the FormData contents for debugging
+    console.log('FormData contains file:', hasFile);
+    console.log('FormData contains url:', hasUrl);
+    
     const response = await axios.post(`${API_URL}/images`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

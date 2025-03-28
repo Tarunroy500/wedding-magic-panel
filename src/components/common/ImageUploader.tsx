@@ -46,16 +46,24 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       return;
     }
     
-    // Handle single file (original behavior)
+    // Handle single file
     const file = files[0];
     
-    // Simulate file upload delay (for demo)
-    setTimeout(() => {
-      // Create a local object URL (would be a server URL in production)
-      const localUrl = URL.createObjectURL(file);
-      onChange(localUrl);
+    // In a real app, you might upload to your server here
+    // For now, we'll use a FileReader to get a data URL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // This is a data URL (base64 encoded image)
+      if (typeof reader.result === 'string') {
+        onChange(reader.result);
+        setIsLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      console.error('Error reading file');
       setIsLoading(false);
-    }, 1500);
+    };
+    reader.readAsDataURL(file);
   };
   
   return (
