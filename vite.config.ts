@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   base: "/", // important for routing
   server: {
     host: "::",
-    port: 8080,
+    port: 8000,
     historyApiFallback: true, // ensures proper routing in development
   },
   plugins: [react()],
