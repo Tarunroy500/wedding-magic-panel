@@ -8,6 +8,7 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
+    historyApiFallback: true, // ensures proper routing in development
   },
   plugins: [react()],
   resolve: {
@@ -17,5 +18,6 @@ export default defineConfig(() => ({
   },
   build: {
     outDir: "dist", // optional, default is 'dist'
+    emptyOutDir: true, // ensures the output directory is cleaned before building
   },
 }));
